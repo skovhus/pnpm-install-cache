@@ -1,0 +1,40 @@
+name: 'pnpm install with caching'
+description: 'install pnpm dependencies with caching'
+author: 'xdrdak'
+branding:
+  color: 'yellow'
+  icon: 'command'
+inputs:
+  npm_token:
+    description: Token for installing dependencies, if not provided, install is omitted
+    required: false
+runs:
+  using: "composite"
+  steps:
+    # Setup pnpm on the job runner, but do not run the "pnpm install" command just yet!
+    # We need to setup cache first before we run our install command!
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      id: pnpm-install
+      with:
+        version: 7
+        run_install: false
+
+    - name: Get pnpm store directory
+      id: pnpm-cache
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      run: pnpm install
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
