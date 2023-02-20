@@ -1,13 +1,17 @@
 name: 'pnpm install with caching'
 description: 'install pnpm dependencies with caching'
-author: 'xdrdak'
 branding:
   color: 'yellow'
   icon: 'command'
 inputs:
   npm_token:
-    description: Token for installing dependencies, if not provided, install is omitted
+    description: Token for installing dependencies, will be passed as NODE_AUTH_TOKEN
     required: false
+    type: string
+  install_command:
+    description: Install command to be used
+    required: false
+    default: pnpm install --frozen-lockfile --ignore-scripts
 runs:
   using: "composite"
   steps:
@@ -24,18 +28,21 @@ runs:
       id: pnpm-cache
       shell: bash
       run: |
-        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+        echo "PNPM_STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
     - name: Setup pnpm cache
       uses: actions/cache@v3
       with:
-        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        # ~/.cache/Cypress is needed for the Cypress binary (in cases the user installs Cypress)
+        path: |
+          ~/.cache/Cypress
+          ${{ steps.pnpm-cache.outputs.PNPM_STORE_PATH }}
         key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
 
     - name: Install dependencies
-      run: pnpm install
+      run: ${{ inputs.install_command }}
       shell: bash
       env:
         NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
